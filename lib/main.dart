@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 void main(List<String> args) {
   runApp(const MyApp());
@@ -11,11 +12,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: HomePage(),
+      home: const HomePage(),
       routes: {
         "/add": (context) => const NewContactView(),
       },
-      initialRoute: "/",
     );
   }
 }
@@ -30,19 +30,31 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    final contactBook = ContactBook();
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Home Page"),
+        title: const Text("Contacts"),
       ),
-      body: ListView.builder(
-        itemCount: contactBook.length,
-        itemBuilder: (context, index) {
-          final contact = contactBook.itemAtIndex(index: index)!;
-          return ListTile(
-            title: Text(contact.name),
-            tileColor: Color(Colors.white60.value),
-            contentPadding: const EdgeInsets.all(8),
+      body: ValueListenableBuilder(
+        valueListenable: ContactBook(),
+        builder: (context, list, child) {
+          final contacts = list;
+          return ListView.builder(
+            itemCount: contacts.length,
+            itemBuilder: (context, index) {
+              final contact = contacts[index];
+              return Dismissible(
+                onDismissed: (direction) {
+                  contacts.remove(contact);
+                },
+                key: ValueKey(contact.id),
+                child: Material(
+                  elevation: 6.0,
+                  child: ListTile(
+                    title: Text(contact.name),
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -57,33 +69,36 @@ class _HomePageState extends State<HomePage> {
 }
 
 class Contact {
+  final String id;
   final String name;
 
-  Contact({required this.name});
+  Contact({required this.name}) : id = const Uuid().v4();
 }
 
-class ContactBook {
+class ContactBook extends ValueNotifier<List<Contact>> {
   //Singleton class
-  ContactBook._sharedInstance();
+  ContactBook._sharedInstance() : super([]);
   static final ContactBook _shared = ContactBook._sharedInstance();
   //THIS IS THE ESTABLISHED PATTERN TO CREATE SINGLETONS IN FLUTTER
   factory ContactBook() => _shared;
-  final List<Contact> _contacts = [
-    Contact(name: "Shubham"),
-    Contact(name: "Simran"),
-  ];
 
-  int get length => _contacts.length;
+  int get length => value.length;
   void add({required Contact contact}) {
-    _contacts.add(contact);
+    final contacts = value;
+    contacts.add(contact);
+    notifyListeners();
   }
 
   void remove({required Contact contact}) {
-    _contacts.remove(contact);
+    final contacts = value;
+    if (contacts.contains(contact)) {
+      contacts.remove(contact);
+      notifyListeners();
+    }
   }
 
   Contact? itemAtIndex({required int index}) =>
-      (index < length) ? _contacts.elementAt(index) : null;
+      (index < value.length) ? value.elementAt(index) : null;
 }
 
 class NewContactView extends StatefulWidget {
